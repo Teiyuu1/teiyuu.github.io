@@ -3,11 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的第一个静态页面</title>
+    <title>AI Art Posts and Images</title>
+    <style>
+        .hidden {
+            display: none;
+        }
+        #images-content div {
+            margin: 20px;
+        }
+        #images-content img {
+            display: block;
+            margin: auto;
+            height: auto;
+        }
+        #images-content p {
+            text-align: center;
+            font-weight: bold;
+        }
+        #posts-content a {
+            font-size: 1.2em; /* Increase the font size of the links */
+            display: block;
+            margin-bottom: 5px;
+        }
+        #posts-content img {
+            max-width: 200px; /* Reduce the size of the images under the links */
+            height: auto;
+            display: block;
+            margin: auto;
+        }
+    </style>
 </head>
 <body>
-    <h1>欢迎来到我的网页</h1>
-    <p>这是一个简单的HTML静态页面。您可以在这里添加更多的内容。</p>
-    <a href="https://www.example.com">访问我的链接</a>
+    <div id="main-content">
+        <label for="page-number">Enter Page Number:</label>
+        <input type="number" id="page-number" value="1" min="1" style="width: 50px;">
+        <button id="fetch-posts-btn">Fetch AI Art Posts</button>
+        <div id="posts-content" class="hidden"></div>
+    </div>
+
+    <div id="sub-content" class="hidden">
+        <button id="back-to-posts-btn">Back to Posts</button>
+        <div id="images-total" class="hidden"></div>
+        <div id="images-content"></div>
+    </div>
+
+    <script>
+        document.getElementById('fetch-posts-btn').addEventListener('click', function() {
+            fetchAIArtPosts(document.getElementById('page-number').value);
+        });
+        document.getElementById('back-to-posts-btn').addEventListener('click', showPosts);
+
+        async function fetchAIArtPosts(pageNumber) {
+            var postsContent = document.getElementById('posts-content');
+            postsContent.innerHTML = ''; // Clear previous content
+            var response = await fetch('https://jrants.com/category/ai-art/page/' + pageNumber);
+            var text = await response.text();
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(text, 'text/html');
+            var articles = doc.querySelectorAll('article[id^="post-"]');
+
+            articles.forEach(function(article) {
+                var h2 = article.querySelector('h2');
+                var postImageDiv = article.querySelector('div.post-image');
+                if (h2 && postImageDiv) {
+                    var link = h2.querySelector('a');
+                    var image = postImageDiv.querySelector('img');
+                    if (link && image) {
+                        var title = link.textContent;
+                        var url = link.href;
+                        var imgUrl = image.src;
+
+                        var articleDiv = document.createElement('div');
+                        var articleLink = document.createElement('a');
+                        articleLink.href = '#';
+                        articleLink.textContent = title;
+                        articleLink.addEventListener('click', function(event) {
+                            event.preventDefault();
+                            fetchAIArtImages(url);
+                            showImages();
+                        });
+                        articleDiv.appendChild(articleLink);
+
+                        var articleImage = document.createElement('img');
+                        articleImage.src = imgUrl;
+                        articleImage.alt = title;
+                        articleDiv.appendChild(articleImage);
+
+                        postsContent.appendChild(articleDiv);
+                    }
+                }
+            });
+
+            showPosts();
+        }
+
+        async function fetchAIArtImages(postUrl) {
+            var imagesContent = document.getElementById('images-content');
+            var imagesTotal = document.getElementById('images-total');
+            imagesContent.innerHTML = ''; // Clear previous content
+            imagesTotal.classList.add('hidden'); // Hide the total count initially
+
+            var urlQueue = [postUrl];
+            var processedUrls = new Set();
+            var imageCounter = 0;
+
+            while (urlQueue.length > 0) {
+                var currentUrl = urlQueue.shift();
+                if (processedUrls.has(currentUrl)) {
+                    continue;
+                }
+                processedUrls.add(currentUrl);
+
+                var response = await fetch(currentUrl);
+                var text = await response.text();
+                var parser = new DOMParser();
+                var doc = parser.parseFromString(text, 'text/html');
+
+                // Add images to content
+                var images = doc.querySelectorAll('img[class^="wp-image-"]');
+                images.forEach(function(img) {
+                    var imgUrl = img.src;
+                    imageCounter++;
+                    var imageDiv = document.createElement('div');
+                    var imageElement = document.createElement('img');
+                    var imageNumberElement = document.createElement('p');
+
+                    imageNumberElement.textContent = 'Image number: ' + imageCounter;
+                    imageElement.src = imgUrl;
+                    imageElement.alt = "AI Art Image";
+
+                    imageDiv.appendChild(imageNumberElement);
+                    imageDiv.appendChild(imageElement);
+
+                    imagesContent.appendChild(imageDiv);
+                });
+
+                // Find additional pages and add them to the queue
+                var paginationLinks = doc.querySelectorAll('a[href^="' + currentUrl + '/"]');
+                paginationLinks.forEach(function(link) {
+                    var linkedUrl = link.href;
+                    if (!processedUrls.has(linkedUrl)) {
+                        urlQueue.push(linkedUrl);
+                    }
+                });
+            }
+
+            imagesTotal.textContent = 'Total images: ' + imageCounter;
+            imagesTotal.classList.remove('hidden'); // Show the total count
+        }
+
+        function showPosts() {
+            document.getElementById('posts-content').classList.remove('hidden');
+            document.getElementById('images-content').innerHTML = '';
+            document.getElementById('images-total').classList.add('hidden');
+            document.getElementById('sub-content').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+        }
+
+        function showImages() {
+            document.getElementById('posts-content').classList.add('hidden');
+            document.getElementById('sub-content').classList.remove('hidden');
+            document.getElementById('main-content').classList.add('hidden');
+        }
+    </script>
 </body>
 </html>
